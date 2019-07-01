@@ -1,10 +1,11 @@
-from tkinter import *
-from tkinter import filedialog
 import json
 import os
 import webbrowser
-from proknow import ProKnow
 from pathlib import Path
+from tkinter import *
+from tkinter import filedialog
+
+from proknow import ProKnow
 
 
 def read_app_configuration(configuration_path):
@@ -77,13 +78,18 @@ def upload():
     global workspace_id
     global directory_to_upload_path
     global upload_status
+    global patient_url
     pk = ProKnow(base_url, credentials_file=credentials_path.get())
     upload_status.set("in progress...")
     upload_status_value.update_idletasks()
-    pk.uploads.upload(workspace_id, directory_to_upload_path.get())
+    batch = pk.uploads.upload(workspace_id, directory_to_upload_path.get())
     upload_status.set("completed")
     upload_status_value.update_idletasks()
-    enable_view_patient()
+    patients = [patient.get() for patient in batch.patients]
+    if len(patients) > 0:
+        workspace = pk.workspaces.resolve_by_id(workspace_id)
+        patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
+        enable_view_patient()
 
 
 def enable_view_patient():
@@ -95,7 +101,7 @@ def disable_view_patient():
 
 
 def show_uploaded_patient(*_):
-    webbrowser.open_new_tab(configuration["base_url"])  #TODO--Open patient just uploaded
+    webbrowser.open_new_tab(patient_url.get())
 
 
 configuration = read_app_configuration("./config/config.json")
@@ -184,6 +190,7 @@ directory_to_upload_path_value.grid(row=0, column=1, sticky=E)
 directory_to_upload_path_browse_button.grid(row=0, column=2, sticky=E)
 
 upload_status = StringVar()
+patient_url = StringVar()
 
 upload_button = Button(upload_frame, text="Upload", command=upload, state=DISABLED)
 upload_status_value = Label(upload_frame, textvariable=upload_status)
