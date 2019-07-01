@@ -37,6 +37,10 @@ def root_path():
     return os.path.abspath(os.sep)
 
 
+def show_credentials_help(event):
+    webbrowser.open_new_tab("https://support.proknow.com/hc/en-us/articles/360019798893-Configuring-Your-Profile#managing-api-keys")
+
+
 def browse_credentials():
     global credentials_path
     filename = filedialog.askopenfilename(initialdir=root_path(), title="Select credentials file", filetypes=(("json files", "*.json"), ("all files", "*.*")))
@@ -144,13 +148,16 @@ credentials_path = StringVar()
 maybe_initialize_credentials_path()
 
 credentials_path_label = Label(credentials_frame, text="Credentials: ")
+credentials_help = Label(credentials_frame, text="Help", fg="blue", cursor="hand2")
+credentials_help.bind("<Button-1>", show_credentials_help)
 credentials_path_value = Label(credentials_frame, textvariable=credentials_path)
 credentials_path_browse_button = Button(credentials_frame, text="Browse", command=browse_credentials)
 
-credentials_frame.grid_columnconfigure(1, weight=1)
+credentials_frame.grid_columnconfigure(2, weight=1)
 credentials_path_label.grid(row=0, column=0, sticky=W)
-credentials_path_value.grid(row=0, column=1, sticky=E)
-credentials_path_browse_button.grid(row=0, column=2, sticky=E)
+credentials_help.grid(row=0, column=1, sticky=W)
+credentials_path_value.grid(row=0, column=2, sticky=E)
+credentials_path_browse_button.grid(row=0, column=3, sticky=E)
 
 directory_to_upload_path = StringVar()
 
