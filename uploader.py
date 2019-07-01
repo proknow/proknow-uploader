@@ -40,17 +40,19 @@ def root_path():
 def browse_credentials():
     global credentials_path
     filename = filedialog.askopenfilename(initialdir=root_path(), title="Select credentials file", filetypes=(("json files", "*.json"), ("all files", "*.*")))
-    credentials_path.set(filename)
-    save_credentials_path()
-    maybe_enable_upload_button()
+    if filename:
+        credentials_path.set(filename)
+        save_credentials_path()
+        maybe_enable_upload_button()
 
 
 def browse_directory_to_upload():
     global directory_to_upload_path
-    selected_directory = filedialog.askdirectory(initialdir=root_path(), title="Select directory to upload")
-    directory_to_upload_path.set(selected_directory)
-    maybe_enable_upload_button()
-    reset_upload_status()
+    directory = filedialog.askdirectory(initialdir=root_path(), title="Select directory to upload")
+    if directory:
+        directory_to_upload_path.set(directory)
+        maybe_enable_upload_button()
+        reset_upload_status()
 
 
 def maybe_enable_upload_button():
