@@ -4,13 +4,33 @@ import json
 import os
 import webbrowser
 from proknow import ProKnow
+from pathlib import Path
 
 
-def read_configuration(configuration_path):
+def read_app_configuration(configuration_path):
     if not os.path.exists(configuration_path):
         raise FileNotFoundError(rf"The configuration file {configuration_path} does not exist.")
     with open(configuration_path) as configuration_file:
         return json.load(configuration_file)
+
+
+def maybe_initialize_credentials_path():
+    global user_configuration_path
+    global credentials_path
+    if os.path.exists(user_configuration_path):
+        with open(user_configuration_path) as user_configuration_file:
+            user_configuration = json.load(user_configuration_file)
+            credentials_path.set(user_configuration["credentials_file"])
+
+
+def save_credentials_path():
+    global user_configuration_path
+    global credentials_path
+    os.makedirs(os.path.dirname(user_configuration_path), exist_ok=True)
+    with open(user_configuration_path, mode="w+") as user_configuration_file:
+        user_configuration = dict()
+        user_configuration["credentials_file"] = credentials_path.get()
+        json.dump(user_configuration, user_configuration_file)
 
 
 def root_path():
@@ -21,6 +41,7 @@ def browse_credentials():
     global credentials_path
     filename = filedialog.askopenfilename(initialdir=root_path(), title="Select credentials file", filetypes=(("json files", "*.json"), ("all files", "*.*")))
     credentials_path.set(filename)
+    save_credentials_path()
     maybe_enable_upload_button()
 
 
@@ -29,6 +50,7 @@ def browse_directory_to_upload():
     selected_directory = filedialog.askdirectory(initialdir=root_path(), title="Select directory to upload")
     directory_to_upload_path.set(selected_directory)
     maybe_enable_upload_button()
+    reset_upload_status()
 
 
 def maybe_enable_upload_button():
@@ -36,6 +58,11 @@ def maybe_enable_upload_button():
     global directory_to_upload_path
     if credentials_path.get() and directory_to_upload_path.get():
         upload_button['state'] = 'normal'
+
+
+def reset_upload_status():
+    upload_status.set("")
+    upload_status_value.update_idletasks()
 
 
 def upload():
@@ -47,15 +74,17 @@ def upload():
     upload_status.set("in progress...")
     upload_status_value.update_idletasks()
     pk.uploads.upload(workspace_id, directory_to_upload_path.get())
-    upload_status.set("")
+    upload_status.set("completed")
     upload_status_value.update_idletasks()
     webbrowser.open_new_tab(configuration["base_url"])  #TODO--Open patient just uploaded
 
 
-configuration = read_configuration("./config/config.json")
+configuration = read_app_configuration("./config/config.json")
 project_name = configuration["project_name"]
 base_url = configuration["base_url"]
 workspace_id = configuration["workspace_id"]
+scorecard_template_id = configuration["scorecard_template_id"]
+user_configuration_path = os.path.join(str(Path.home()), ".proknow", "uploader", "user_configuration.json")
 
 root = Tk()
 root.title(f"{project_name} Uploader")
@@ -65,6 +94,10 @@ app_config_frame = Frame(root, width=490, height=90, padx=5, pady=5)
 credentials_frame = Frame(root, width=490, height=40, padx=5, pady=5)
 directory_to_upload_frame = Frame(root, width=490, height=40, padx=5, pady=5)
 upload_frame = Frame(root, width=490, height=40, padx=5, pady=5)
+is_imageset_required = configuration["is_imageset_required"]
+is_structure_set_required = configuration["is_structure_set_required"]
+is_plan_required = configuration["is_plan_required"]
+is_dose_required = configuration["is_dose_required"]
 
 root.grid_rowconfigure(3, weight=1)
 root.grid_columnconfigure(0, weight=1)
@@ -75,19 +108,19 @@ directory_to_upload_frame.grid(row=2, sticky="ew")
 upload_frame.grid(row=4, sticky="ew")
 
 base_url_label = Label(app_config_frame, text="Base URL: ")
-base_url_value = Label(app_config_frame, text=configuration["base_url"])
+base_url_value = Label(app_config_frame, text=base_url)
 workspace_id_label = Label(app_config_frame, text="Workspace ID: ")
-workspace_id_value = Label(app_config_frame, text=configuration["workspace_id"])
+workspace_id_value = Label(app_config_frame, text=workspace_id)
 scorecard_template_id_label = Label(app_config_frame, text="Scorecard Template ID: ")
-scorecard_template_id_value = Label(app_config_frame, text=configuration["scorecard_template_id"])
+scorecard_template_id_value = Label(app_config_frame, text=scorecard_template_id)
 imageset_required_label = Label(app_config_frame, text="Imageset Required: ")
-imageset_required_value = Label(app_config_frame, text="Yes" if configuration["is_imageset_required"] else "No")
+imageset_required_value = Label(app_config_frame, text="Yes" if is_imageset_required else "No")
 structure_set_required_label = Label(app_config_frame, text="Structure Set Required: ")
-structure_set_required_value = Label(app_config_frame, text="Yes" if configuration["is_structure_set_required"] else "No")
+structure_set_required_value = Label(app_config_frame, text="Yes" if is_structure_set_required else "No")
 plan_required_label = Label(app_config_frame, text="Plan Required: ")
-plan_required_value = Label(app_config_frame, text="Yes" if configuration["is_plan_required"] else "No")
+plan_required_value = Label(app_config_frame, text="Yes" if is_plan_required else "No")
 dose_required_label = Label(app_config_frame, text="Dose Required: ")
-dose_required_value = Label(app_config_frame, text="Yes" if configuration["is_dose_required"] else "No")
+dose_required_value = Label(app_config_frame, text="Yes" if is_dose_required else "No")
 
 app_config_frame.grid_columnconfigure(1, weight=1)
 base_url_label.grid(row=0, column=0, sticky=W)
@@ -106,6 +139,7 @@ dose_required_label.grid(row=6, column=0, sticky=W)
 dose_required_value.grid(row=6, column=1, sticky=E)
 
 credentials_path = StringVar()
+maybe_initialize_credentials_path()
 
 credentials_path_label = Label(credentials_frame, text="Credentials: ")
 credentials_path_value = Label(credentials_frame, textvariable=credentials_path)
