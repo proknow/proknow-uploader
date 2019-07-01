@@ -17,14 +17,14 @@ def root_path():
     return os.path.abspath(os.sep)
 
 
-def browse_credentials_button():
+def browse_credentials():
     global credentials_path
     filename = filedialog.askopenfilename(initialdir=root_path(), title="Select credentials file", filetypes=(("json files", "*.json"), ("all files", "*.*")))
     credentials_path.set(filename)
     maybe_enable_upload_button()
 
 
-def browse_directory_to_upload_button():
+def browse_directory_to_upload():
     global directory_to_upload_path
     selected_directory = filedialog.askdirectory(initialdir=root_path(), title="Select directory to upload")
     directory_to_upload_path.set(selected_directory)
@@ -38,12 +38,17 @@ def maybe_enable_upload_button():
         upload_button['state'] = 'normal'
 
 
-def upload_button():
+def upload():
     global credentials_path
     global workspace_id
     global directory_to_upload_path
+    global upload_status
     pk = ProKnow(base_url, credentials_file=credentials_path.get())
+    upload_status.set("in progress...")
+    upload_status_value.update_idletasks()
     pk.uploads.upload(workspace_id, directory_to_upload_path.get())
+    upload_status.set("")
+    upload_status_value.update_idletasks()
     webbrowser.open_new_tab(configuration["base_url"])  #TODO--Open patient just uploaded
 
 
@@ -104,7 +109,7 @@ credentials_path = StringVar()
 
 credentials_path_label = Label(credentials_frame, text="Credentials: ")
 credentials_path_value = Label(credentials_frame, textvariable=credentials_path)
-credentials_path_browse_button = Button(credentials_frame, text="Browse", command=browse_credentials_button)
+credentials_path_browse_button = Button(credentials_frame, text="Browse", command=browse_credentials)
 
 credentials_frame.grid_columnconfigure(1, weight=1)
 credentials_path_label.grid(row=0, column=0, sticky=W)
@@ -115,16 +120,20 @@ directory_to_upload_path = StringVar()
 
 directory_to_upload_path_label = Label(directory_to_upload_frame, text="Directory to upload: ")
 directory_to_upload_path_value = Label(directory_to_upload_frame, textvariable=directory_to_upload_path)
-directory_to_upload_path_browse_button = Button(directory_to_upload_frame, text="Browse", command=browse_directory_to_upload_button)
+directory_to_upload_path_browse_button = Button(directory_to_upload_frame, text="Browse", command=browse_directory_to_upload)
 
 directory_to_upload_frame.grid_columnconfigure(1, weight=1)
 directory_to_upload_path_label.grid(row=0, column=0, sticky=W)
 directory_to_upload_path_value.grid(row=0, column=1, sticky=E)
 directory_to_upload_path_browse_button.grid(row=0, column=2, sticky=E)
 
-upload_button = Button(upload_frame, text="Upload", command=upload_button, state=DISABLED)
+upload_status = StringVar()
 
-upload_frame.grid_columnconfigure(0, weight=1)
+upload_button = Button(upload_frame, text="Upload", command=upload, state=DISABLED)
+upload_status_value = Label(upload_frame, textvariable=upload_status)
+
+upload_frame.grid_columnconfigure(1, weight=1)
 upload_button.grid(row=0, column=0, sticky=W)
+upload_status_value.grid(row=0, column=1, sticky=W)
 
 root.mainloop()
