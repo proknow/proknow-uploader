@@ -37,7 +37,7 @@ def root_path():
     return os.path.abspath(os.sep)
 
 
-def show_credentials_help(event):
+def show_credentials_help(*_):
     webbrowser.open_new_tab("https://support.proknow.com/hc/en-us/articles/360019798893-Configuring-Your-Profile#managing-api-keys")
 
 
@@ -57,6 +57,7 @@ def browse_directory_to_upload():
         directory_to_upload_path.set(directory)
         maybe_enable_upload_button()
         reset_upload_status()
+        disable_view_patient()
 
 
 def maybe_enable_upload_button():
@@ -82,6 +83,18 @@ def upload():
     pk.uploads.upload(workspace_id, directory_to_upload_path.get())
     upload_status.set("completed")
     upload_status_value.update_idletasks()
+    enable_view_patient()
+
+
+def enable_view_patient():
+    view_patient['state'] = 'normal'
+
+
+def disable_view_patient():
+    view_patient['state'] = DISABLED
+
+
+def show_uploaded_patient(*_):
     webbrowser.open_new_tab(configuration["base_url"])  #TODO--Open patient just uploaded
 
 
@@ -174,9 +187,12 @@ upload_status = StringVar()
 
 upload_button = Button(upload_frame, text="Upload", command=upload, state=DISABLED)
 upload_status_value = Label(upload_frame, textvariable=upload_status)
+view_patient = Label(upload_frame, text="View Patient", fg="blue", cursor="hand2", state=DISABLED)
+view_patient.bind("<Button-1>", show_uploaded_patient)
 
-upload_frame.grid_columnconfigure(1, weight=1)
+upload_frame.grid_columnconfigure(2, weight=1)
 upload_button.grid(row=0, column=0, sticky=W)
 upload_status_value.grid(row=0, column=1, sticky=W)
+view_patient.grid(row=0, column=2, sticky=E)
 
 root.mainloop()
