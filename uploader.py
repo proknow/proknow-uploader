@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import filedialog
 import json
 import os
+import webbrowser
 
 
 def read_configuration(configuration_path):
@@ -27,18 +28,21 @@ def browse_directory_to_upload_button():
     directory_to_upload.set(selected_directory)
 
 
+def upload_button():
+    webbrowser.open_new_tab(configuration["base_url"])  #TODO--Open patient just uploaded
+
+
 configuration = read_configuration("./config/config.json")
-print("Configuration:")
-print(json.dumps(configuration, indent=4))
 project_name = configuration["project_name"]
 
 root = Tk()
 root.title(f"{project_name} Uploader")
-root.geometry('{}x{}'.format(500, 250))
+root.geometry('{}x{}'.format(500, 300))
 
 app_config_frame = Frame(root, width=490, height=90, padx=5, pady=5)
-credentials_frame = Frame(root, width=490, height=50, padx=5)
+credentials_frame = Frame(root, width=490, height=40, padx=5, pady=5)
 directory_to_upload_frame = Frame(root, width=490, height=40, padx=5, pady=5)
+upload_frame = Frame(root, width=490, height=40, padx=5, pady=5)
 
 root.grid_rowconfigure(3, weight=1)
 root.grid_columnconfigure(0, weight=1)
@@ -46,6 +50,7 @@ root.grid_columnconfigure(0, weight=1)
 app_config_frame.grid(row=0, sticky="ew")
 credentials_frame.grid(row=1, sticky="ew")
 directory_to_upload_frame.grid(row=2, sticky="ew")
+upload_frame.grid(row=4, sticky="ew")
 
 base_url_label = Label(app_config_frame, text="Base URL: ")
 base_url_value = Label(app_config_frame, text=configuration["base_url"])
@@ -99,5 +104,10 @@ directory_to_upload_frame.grid_columnconfigure(1, weight=1)
 directory_to_upload_label.grid(row=0, column=0, sticky=W)
 directory_to_upload_value.grid(row=0, column=1, sticky=E)
 directory_to_upload_browse_button.grid(row=0, column=2, sticky=E)
+
+upload_button = Button(upload_frame, text="Upload", command=upload_button)
+
+upload_frame.grid_columnconfigure(0, weight=1)
+upload_button.grid(row=0, column=0, sticky=W)
 
 root.mainloop()
