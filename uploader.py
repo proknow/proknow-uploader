@@ -1,11 +1,17 @@
+import getpass
 import json
 import os
+import socket
+import shutil
+import tempfile
 import webbrowser
 from pathlib import Path
 from tkinter import *
 from tkinter import filedialog
 
+import pydicom
 from proknow import ProKnow
+from pydicom.errors import *
 
 
 def read_app_configuration(configuration_path):
@@ -82,14 +88,49 @@ def upload():
     pk = ProKnow(base_url, credentials_file=credentials_path.get())
     upload_status.set("in progress...")
     upload_status_value.update_idletasks()
-    batch = pk.uploads.upload(workspace_id, directory_to_upload_path.get())
-    upload_status.set("completed")
-    upload_status_value.update_idletasks()
+    tempfolder = tempfile.mkdtemp(prefix="proknow-uploader")
+    anonymize(directory_to_upload_path.get(), get_user_name(), tempfolder)
+    batch = pk.uploads.upload(workspace_id, tempfolder)
+    shutil.rmtree(tempfolder)
     patients = [patient.get() for patient in batch.patients]
     if len(patients) > 0:
         workspace = pk.workspaces.resolve_by_id(workspace_id)
         patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
         enable_view_patient()
+    upload_status.set("completed")
+    upload_status_value.update_idletasks()
+
+
+def get_user_name():  #TODO--CAN WE OBTAIN USERNAME FROM API?
+    username = getpass.getuser()
+    hostname = socket.gethostname()
+    return f"{hostname}-{username}"
+
+
+def anonymize(input_folder, user_name, output_folder):
+    # r=root, d=directories, f = files
+    for r, d, f in os.walk(input_folder):
+        for file in f:
+            input_file_path = os.path.normpath(os.path.join(r, file))
+            try:
+                dataset = pydicom.dcmread(input_file_path)
+                dataset.InstitutionName = None
+                dataset.InstitutionAddress = None
+                dataset.ReferringPhysicianName = None
+                dataset.PhysiciansOfRecord = None
+                dataset.PatientName = user_name
+                dataset.PatientID = user_name
+                if "PatientBirthDate" not in dataset or len(dataset.PatientBirthDate) != 8:
+                    dataset.PatientBirthDate = None
+                else:
+                    dataset.PatientBirthDate = f"{dataset.PatientBirthDate[:4]}0101"
+                dataset.EthnicGroup = None
+                dataset.StudyID = None
+                output_filename = f"{dataset.Modality}.{dataset.SOPInstanceUID}.dcm"
+                output_file_path = os.path.normpath(os.path.join(output_folder, output_filename))
+                dataset.save_as(output_file_path, False)
+            except InvalidDicomError:
+                pass  # ignore non-DICOM files
 
 
 def enable_view_patient():
