@@ -6,6 +6,7 @@ import webbrowser
 from pathlib import Path
 from tkinter import *
 from tkinter import filedialog
+from tkinter import messagebox
 
 import pydicom
 from proknow import ProKnow
@@ -154,16 +155,20 @@ def upload():
     upload_status_value.update_idletasks()
     tempfolder = tempfile.mkdtemp(prefix="proknow-uploader")
     anonymize(directory_to_upload_path.get(), tempfolder)
-    batch = pk.uploads.upload(workspace_id, tempfolder)
-    shutil.rmtree(tempfolder)
-    patients = [patient.get() for patient in batch.patients]
-    if len(patients) > 0:
-        maybe_update_entity_statuses()
-        maybe_attach_scorecard(patients[0])
-        workspace = pk.workspaces.resolve_by_id(workspace_id)
-        patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
-        enable_view_patient()
-    upload_status.set("completed")
+    if not do_conflicting_entities_exist(tempfolder):
+        batch = pk.uploads.upload(workspace_id, tempfolder)
+        shutil.rmtree(tempfolder)
+        patients = [patient.get() for patient in batch.patients]
+        if len(patients) > 0:
+            maybe_update_entity_statuses()
+            maybe_attach_scorecard(patients[0])
+            workspace = pk.workspaces.resolve_by_id(workspace_id)
+            patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
+            enable_view_patient()
+        upload_status.set("completed")
+    else:
+        shutil.rmtree(tempfolder)
+        upload_status.set("aborted")
     upload_status_value.update_idletasks()
 
 
@@ -194,12 +199,63 @@ def anonymize(input_folder, output_folder):
                 pass  # ignore non-DICOM files
 
 
-def get_dose_id(patient_item):
-    dose_entities = patient_item.find_entities(lambda entity: entity.data["type"] == "dose")
-    if len(dose_entities) > 0:
-        return dose_entities[0].id
+def do_conflicting_entities_exist(folder):
+    global workspace_id
+    global user_name
+    entity_types_to_be_overwritten = get_entity_types_to_be_overwritten(folder)
+    if len(entity_types_to_be_overwritten) > 0:
+        pretty_entity_types_to_be_overwritten = [x.replace("_", " ") for x in entity_types_to_be_overwritten]
+        prompt = f'Replace existing {", ".join(pretty_entity_types_to_be_overwritten)} entities?'
+        result = messagebox.askquestion("Entities Already Uploaded", message=prompt, icon='warning')
+        if result == 'yes':
+            patient_item = pk.patients.find(workspace_id, name=user_name).get()
+            for entity_type in entity_types_to_be_overwritten:
+                for entity in patient_item.find_entities(lambda e: e.data["type"] == entity_type):
+                    requestor.delete(f"/workspaces/{workspace_id}/entities/{entity.id}")
+                    return False
+        else:
+            return True
     else:
-        return None
+        return False
+
+
+def get_entity_types_to_be_overwritten(folder):
+    global was_imageset_submitted
+    global was_structure_set_submitted
+    global was_plan_submitted
+    global was_dose_submitted
+    file_entity_types = get_file_entity_types(folder)
+    entity_types_to_be_overwritten = []
+    if was_imageset_submitted.get() == "Yes" and "image_set" in file_entity_types:
+        entity_types_to_be_overwritten.append("image_set")
+    if was_structure_set_submitted.get() == "Yes" and "structure_set" in file_entity_types:
+        entity_types_to_be_overwritten.append("structure_set")
+    if was_plan_submitted.get() == "Yes" and "plan" in file_entity_types:
+        entity_types_to_be_overwritten.append("plan")
+    if was_dose_submitted.get() == "Yes" and "dose" in file_entity_types:
+        entity_types_to_be_overwritten.append("dose")
+    return entity_types_to_be_overwritten
+
+
+def get_file_entity_types(folder):
+    # r=root, d=directories, f = files
+    entity_types = []
+    modality_entity_type_map = {
+        "CT": "image_set",
+        "MR": "image_set",
+        "RTSTRUCT": "structure_set",
+        "RTPLAN": "plan",
+        "RTDOSE": "dose"
+    }
+    for r, d, f in os.walk(folder):
+        for file in f:
+            file_path = os.path.normpath(os.path.join(r, file))
+            dataset = pydicom.dcmread(file_path, specific_tags=["Modality"])
+            modality = dataset.Modality
+            entity_type = modality_entity_type_map[modality]
+            if entity_type not in entity_types:
+                entity_types.append(entity_type)
+    return entity_types
 
 
 def maybe_attach_scorecard(patient_item):
@@ -208,7 +264,19 @@ def maybe_attach_scorecard(patient_item):
     if dose_id:
         _, scorecard_template = requestor.get(f"/metrics/templates/{scorecard_template_id}")
         del scorecard_template["id"]
+        _, scorecards = requestor.get(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets")
+        for scorecard in scorecards:
+            if scorecard["name"] == scorecard_template["name"]:
+                requestor.delete(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets/{scorecard['id']}")
         requestor.post(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets", body=scorecard_template)
+
+
+def get_dose_id(patient_item):
+    dose_entities = patient_item.find_entities(lambda entity: entity.data["type"] == "dose")
+    if len(dose_entities) > 0:
+        return dose_entities[0].id
+    else:
+        return None
 
 
 def enable_view_patient():
@@ -233,7 +301,7 @@ is_imageset_required = configuration["is_imageset_required"]
 is_structure_set_required = configuration["is_structure_set_required"]
 is_plan_required = configuration["is_plan_required"]
 is_dose_required = configuration["is_dose_required"]
-user_configuration_path = os.path.join(str(Path.home()), ".proknow", "uploader", "user_configuration.json")
+user_configuration_path = os.path.join(str(Path.home()), ".proknow", "uploader", "user_configuration.json")  #TODO--INCLUDE UPLOADER NAME IN PATH
 pk = None
 requestor = None
 user_name = None
