@@ -56,6 +56,21 @@ def get_user_name():
     return user["name"]
 
 
+def show_credentials_help(*_):
+    webbrowser.open_new_tab("https://support.proknow.com/hc/en-us/articles/360019798893-Configuring-Your-Profile#managing-api-keys")
+
+
+def browse_credentials():
+    global root_path
+    global credentials_path
+    filename = filedialog.askopenfilename(initialdir=root_path, title="Select credentials file", filetypes=(("json files", "*.json"), ("all files", "*.*")))
+    if filename:
+        credentials_path.set(filename)
+        save_credentials_path()
+        maybe_update_credential_dependencies()
+        maybe_enable_upload_button()
+
+
 def save_credentials_path():
     global user_configuration_path
     global credentials_path
@@ -66,27 +81,10 @@ def save_credentials_path():
         json.dump(user_configuration, user_configuration_file)
 
 
-def root_path():
-    return os.path.abspath(os.sep)
-
-
-def show_credentials_help(*_):
-    webbrowser.open_new_tab("https://support.proknow.com/hc/en-us/articles/360019798893-Configuring-Your-Profile#managing-api-keys")
-
-
-def browse_credentials():
-    global credentials_path
-    filename = filedialog.askopenfilename(initialdir=root_path(), title="Select credentials file", filetypes=(("json files", "*.json"), ("all files", "*.*")))
-    if filename:
-        credentials_path.set(filename)
-        save_credentials_path()
-        maybe_update_credential_dependencies()
-        maybe_enable_upload_button()
-
-
 def browse_directory_to_upload():
+    global root_path
     global directory_to_upload_path
-    directory = filedialog.askdirectory(initialdir=root_path(), title="Select directory to upload")
+    directory = filedialog.askdirectory(initialdir=root_path, title="Select directory to upload")
     if directory:
         directory_to_upload_path.set(directory)
         maybe_enable_upload_button()
@@ -184,6 +182,7 @@ def show_uploaded_patient(*_):
     webbrowser.open_new_tab(patient_url.get())
 
 
+root_path = os.path.abspath(os.sep)
 configuration = read_app_configuration("./config/config.json")
 project_name = configuration["project_name"]
 base_url = configuration["base_url"]
