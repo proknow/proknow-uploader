@@ -56,6 +56,45 @@ def get_user_name():
     return user["name"]
 
 
+def maybe_update_entity_statuses():
+    global pk
+    global workspace_id
+    global user_name
+    global does_patient_exist
+    global was_imageset_submitted
+    global was_structure_set_submitted
+    global was_plan_submitted
+    global was_dose_submitted
+    global does_patient_exist_value
+    global was_imageset_submitted_value
+    global was_structure_set_submitted_value
+    global was_plan_submitted_value
+    global was_dose_submitted_value
+    does_patient_exist.set("")
+    was_imageset_submitted.set("")
+    was_structure_set_submitted.set("")
+    was_plan_submitted.set("")
+    was_dose_submitted.set("")
+    if user_name is not None:
+        patient = pk.patients.find(workspace_id, name=user_name)
+        does_patient_exist.set("Yes" if patient is not None else "No")
+        if does_patient_exist.get() == "Yes":
+            patient_item = patient.get()
+            if is_imageset_required:
+                was_imageset_submitted.set("Yes" if len(patient_item.find_entities(lambda entity: entity.data["type"] == "image_set")) > 0 else "No")
+            if is_structure_set_required:
+                was_structure_set_submitted.set("Yes" if len(patient_item.find_entities(lambda entity: entity.data["type"] == "structure_set")) > 0 else "No")
+            if is_plan_required:
+                was_plan_submitted.set("Yes" if len(patient_item.find_entities(lambda entity: entity.data["type"] == "plan")) > 0 else "No")
+            if is_dose_required:
+                was_dose_submitted.set("Yes" if len(patient_item.find_entities(lambda entity: entity.data["type"] == "dose")) > 0 else "No")
+    does_patient_exist_value.update_idletasks()
+    was_imageset_submitted_value.update_idletasks()
+    was_structure_set_submitted_value.update_idletasks()
+    was_plan_submitted_value.update_idletasks()
+    was_dose_submitted_value.update_idletasks()
+
+
 def show_credentials_help(*_):
     webbrowser.open_new_tab("https://support.proknow.com/hc/en-us/articles/360019798893-Configuring-Your-Profile#managing-api-keys")
 
@@ -68,6 +107,7 @@ def browse_credentials():
         credentials_path.set(filename)
         save_credentials_path()
         maybe_update_credential_dependencies()
+        maybe_update_entity_statuses()
         maybe_enable_upload_button()
 
 
@@ -118,6 +158,7 @@ def upload():
     shutil.rmtree(tempfolder)
     patients = [patient.get() for patient in batch.patients]
     if len(patients) > 0:
+        maybe_update_entity_statuses()
         maybe_attach_scorecard(patients[0])
         workspace = pk.workspaces.resolve_by_id(workspace_id)
         patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
@@ -188,6 +229,10 @@ project_name = configuration["project_name"]
 base_url = configuration["base_url"]
 workspace_id = configuration["workspace_id"]
 scorecard_template_id = configuration["scorecard_template_id"]
+is_imageset_required = configuration["is_imageset_required"]
+is_structure_set_required = configuration["is_structure_set_required"]
+is_plan_required = configuration["is_plan_required"]
+is_dose_required = configuration["is_dose_required"]
 user_configuration_path = os.path.join(str(Path.home()), ".proknow", "uploader", "user_configuration.json")
 pk = None
 requestor = None
@@ -195,23 +240,21 @@ user_name = None
 
 root = Tk()
 root.title(f"{project_name} Uploader")
-root.geometry('{}x{}'.format(500, 300))
+root.geometry('{}x{}'.format(500, 400))
 
 app_config_frame = Frame(root, width=490, height=90, padx=5, pady=5)
 credentials_frame = Frame(root, width=490, height=40, padx=5, pady=5)
+entity_status_frame = Frame(root, width=490, height=90, padx=5, pady=5)
 directory_to_upload_frame = Frame(root, width=490, height=40, padx=5, pady=5)
 upload_frame = Frame(root, width=490, height=40, padx=5, pady=5)
-is_imageset_required = configuration["is_imageset_required"]
-is_structure_set_required = configuration["is_structure_set_required"]
-is_plan_required = configuration["is_plan_required"]
-is_dose_required = configuration["is_dose_required"]
 
-root.grid_rowconfigure(3, weight=1)
+root.grid_rowconfigure(4, weight=1)
 root.grid_columnconfigure(0, weight=1)
 
 app_config_frame.grid(row=0, sticky="ew")
 credentials_frame.grid(row=1, sticky="ew")
-directory_to_upload_frame.grid(row=2, sticky="ew")
+entity_status_frame.grid(row=2, sticky="ew")
+directory_to_upload_frame.grid(row=3, sticky="ew")
 upload_frame.grid(row=4, sticky="ew")
 
 base_url_label = Label(app_config_frame, text="Base URL: ")
@@ -260,6 +303,52 @@ credentials_path_label.grid(row=0, column=0, sticky=W)
 credentials_help.grid(row=0, column=1, sticky=W)
 credentials_path_value.grid(row=0, column=2, sticky=E)
 credentials_path_browse_button.grid(row=0, column=3, sticky=E)
+
+does_patient_exist = StringVar()
+was_imageset_submitted = StringVar()
+was_structure_set_submitted = StringVar()
+was_plan_submitted = StringVar()
+was_dose_submitted = StringVar()
+
+does_patient_exist_label = Label(entity_status_frame, text="Patient exists? ")
+does_patient_exist_value = Label(entity_status_frame, textvariable=does_patient_exist, state=DISABLED)
+was_imageset_submitted_label = Label(entity_status_frame, text="Imageset submitted? ")
+was_imageset_submitted_value = Label(entity_status_frame, textvariable=was_imageset_submitted, state=DISABLED)
+was_structure_set_submitted_label = Label(entity_status_frame, text="Structure set submitted? ")
+was_structure_set_submitted_value = Label(entity_status_frame, textvariable=was_structure_set_submitted, state=DISABLED)
+was_plan_submitted_label = Label(entity_status_frame, text="Plan submitted? ")
+was_plan_submitted_value = Label(entity_status_frame, textvariable=was_plan_submitted, state=DISABLED)
+was_dose_submitted_label = Label(entity_status_frame, text="Dose submitted? ")
+was_dose_submitted_value = Label(entity_status_frame, textvariable=was_dose_submitted, state=DISABLED)
+maybe_update_entity_statuses()
+
+entity_status_frame.grid_columnconfigure(1, weight=1)
+does_patient_exist_label.grid(row=0, column=0, sticky=W)
+does_patient_exist_value.grid(row=0, column=1, sticky=E)
+if is_imageset_required:
+    was_imageset_submitted_label.grid(row=1, column=0, sticky=W)
+    was_imageset_submitted_value.grid(row=1, column=1, sticky=E)
+else:
+    was_imageset_submitted_label.grid_remove()
+    was_imageset_submitted_value.grid_remove()
+if is_structure_set_required:
+    was_structure_set_submitted_label.grid(row=2, column=0, sticky=W)
+    was_structure_set_submitted_value.grid(row=2, column=1, sticky=E)
+else:
+    was_structure_set_submitted_label.grid_remove()
+    was_structure_set_submitted_value.grid_remove()
+if is_plan_required:
+    was_plan_submitted_label.grid(row=3, column=0, sticky=W)
+    was_plan_submitted_value.grid(row=3, column=1, sticky=E)
+else:
+    was_plan_submitted_label.grid_remove()
+    was_plan_submitted_value.grid_remove()
+if is_dose_required:
+    was_dose_submitted_label.grid(row=4, column=0, sticky=W)
+    was_dose_submitted_value.grid(row=4, column=1, sticky=E)
+else:
+    was_dose_submitted_label.grid_remove()
+    was_dose_submitted_value.grid_remove()
 
 directory_to_upload_path = StringVar()
 
