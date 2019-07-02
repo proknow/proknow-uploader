@@ -12,6 +12,7 @@ from tkinter import filedialog
 import pydicom
 from proknow import ProKnow
 from pydicom.errors import *
+from Requestor import Requestor
 
 
 def read_app_configuration(configuration_path):
@@ -101,10 +102,16 @@ def upload():
     upload_status_value.update_idletasks()
 
 
-def get_user_name():  #TODO--CAN WE OBTAIN USERNAME FROM API?
-    username = getpass.getuser()
-    hostname = socket.gethostname()
-    return f"{hostname}-{username}"
+def get_user_name():
+    global credentials_path
+    global base_url
+    with open(credentials_path.get()) as credentials_file:
+        credentials = json.load(credentials_file)
+        credentials_id = credentials["id"]
+        credentials_secret = credentials["secret"]
+        requestor = Requestor(base_url, credentials_id, credentials_secret)
+        _, user = requestor.get('/user')
+        return user["name"]
 
 
 def anonymize(input_folder, user_name, output_folder):
