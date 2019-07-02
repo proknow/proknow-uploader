@@ -95,6 +95,7 @@ def upload():
     shutil.rmtree(tempfolder)
     patients = [patient.get() for patient in batch.patients]
     if len(patients) > 0:
+        attach_scorecard(get_dose_id(patients[0]))
         workspace = pk.workspaces.resolve_by_id(workspace_id)
         patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
         enable_view_patient()
@@ -138,6 +139,25 @@ def anonymize(input_folder, user_name, output_folder):
                 dataset.save_as(output_file_path, False)
             except InvalidDicomError:
                 pass  # ignore non-DICOM files
+
+
+def get_dose_id(patient_item):
+    dose_entities = patient_item.find_entities(lambda entity: entity.data["type"] == "dose")
+    return dose_entities[0].id
+
+
+def attach_scorecard(dose_id):
+    global credentials_path
+    global base_url
+    global scorecard_template_id
+    with open(credentials_path.get()) as credentials_file:
+        credentials = json.load(credentials_file)
+        credentials_id = credentials["id"]
+        credentials_secret = credentials["secret"]
+        requestor = Requestor(base_url, credentials_id, credentials_secret)
+        _, scorecard_template = requestor.get(f"/metrics/templates/{scorecard_template_id}")
+        del scorecard_template["id"]
+        requestor.post(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets", body=scorecard_template)
 
 
 def enable_view_patient():
