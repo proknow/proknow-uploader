@@ -90,12 +90,13 @@ def upload():
     upload_status.set("in progress...")
     upload_status_value.update_idletasks()
     tempfolder = tempfile.mkdtemp(prefix="proknow-uploader")
-    anonymize(directory_to_upload_path.get(), get_user_name(), tempfolder)
+    requestor = get_requestor()
+    anonymize(directory_to_upload_path.get(), get_user_name(requestor), tempfolder)
     batch = pk.uploads.upload(workspace_id, tempfolder)
     shutil.rmtree(tempfolder)
     patients = [patient.get() for patient in batch.patients]
     if len(patients) > 0:
-        attach_scorecard(get_dose_id(patients[0]))
+        maybe_attach_scorecard(requestor, patients[0])
         workspace = pk.workspaces.resolve_by_id(workspace_id)
         patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
         enable_view_patient()
@@ -103,16 +104,18 @@ def upload():
     upload_status_value.update_idletasks()
 
 
-def get_user_name():
+def get_requestor():
     global credentials_path
-    global base_url
     with open(credentials_path.get()) as credentials_file:
         credentials = json.load(credentials_file)
         credentials_id = credentials["id"]
         credentials_secret = credentials["secret"]
-        requestor = Requestor(base_url, credentials_id, credentials_secret)
-        _, user = requestor.get('/user')
-        return user["name"]
+        return Requestor(base_url, credentials_id, credentials_secret)
+
+
+def get_user_name(requestor):
+    _, user = requestor.get('/user')
+    return user["name"]
 
 
 def anonymize(input_folder, user_name, output_folder):
@@ -143,18 +146,16 @@ def anonymize(input_folder, user_name, output_folder):
 
 def get_dose_id(patient_item):
     dose_entities = patient_item.find_entities(lambda entity: entity.data["type"] == "dose")
-    return dose_entities[0].id
+    if len(dose_entities) > 0:
+        return dose_entities[0].id
+    else:
+        return None
 
 
-def attach_scorecard(dose_id):
-    global credentials_path
-    global base_url
+def maybe_attach_scorecard(requestor, patient_item):
     global scorecard_template_id
-    with open(credentials_path.get()) as credentials_file:
-        credentials = json.load(credentials_file)
-        credentials_id = credentials["id"]
-        credentials_secret = credentials["secret"]
-        requestor = Requestor(base_url, credentials_id, credentials_secret)
+    dose_id = get_dose_id(patient_item)
+    if dose_id:
         _, scorecard_template = requestor.get(f"/metrics/templates/{scorecard_template_id}")
         del scorecard_template["id"]
         requestor.post(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets", body=scorecard_template)
