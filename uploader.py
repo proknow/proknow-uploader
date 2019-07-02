@@ -1,7 +1,5 @@
-import getpass
 import json
 import os
-import socket
 import shutil
 import tempfile
 import webbrowser
@@ -12,6 +10,7 @@ from tkinter import filedialog
 import pydicom
 from proknow import ProKnow
 from pydicom.errors import *
+
 from Requestor import Requestor
 
 
@@ -29,6 +28,32 @@ def maybe_initialize_credentials_path():
         with open(user_configuration_path) as user_configuration_file:
             user_configuration = json.load(user_configuration_file)
             credentials_path.set(user_configuration["credentials_file"])
+
+
+def maybe_update_credential_dependencies():
+    global credentials_path
+    global pk
+    global requestor
+    global user_name
+    if credentials_path.get():
+        pk = ProKnow(base_url, credentials_file=credentials_path.get())
+        requestor = get_requestor()
+        user_name = get_user_name()
+
+
+def get_requestor():
+    global credentials_path
+    with open(credentials_path.get()) as credentials_file:
+        credentials = json.load(credentials_file)
+        credentials_id = credentials["id"]
+        credentials_secret = credentials["secret"]
+        return Requestor(base_url, credentials_id, credentials_secret)
+
+
+def get_user_name():
+    global requestor
+    _, user = requestor.get('/user')
+    return user["name"]
 
 
 def save_credentials_path():
@@ -55,6 +80,7 @@ def browse_credentials():
     if filename:
         credentials_path.set(filename)
         save_credentials_path()
+        maybe_update_credential_dependencies()
         maybe_enable_upload_button()
 
 
@@ -81,22 +107,20 @@ def reset_upload_status():
 
 
 def upload():
-    global credentials_path
     global workspace_id
     global directory_to_upload_path
+    global pk
     global upload_status
     global patient_url
-    pk = ProKnow(base_url, credentials_file=credentials_path.get())
     upload_status.set("in progress...")
     upload_status_value.update_idletasks()
     tempfolder = tempfile.mkdtemp(prefix="proknow-uploader")
-    requestor = get_requestor()
-    anonymize(directory_to_upload_path.get(), get_user_name(requestor), tempfolder)
+    anonymize(directory_to_upload_path.get(), tempfolder)
     batch = pk.uploads.upload(workspace_id, tempfolder)
     shutil.rmtree(tempfolder)
     patients = [patient.get() for patient in batch.patients]
     if len(patients) > 0:
-        maybe_attach_scorecard(requestor, patients[0])
+        maybe_attach_scorecard(patients[0])
         workspace = pk.workspaces.resolve_by_id(workspace_id)
         patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
         enable_view_patient()
@@ -104,21 +128,8 @@ def upload():
     upload_status_value.update_idletasks()
 
 
-def get_requestor():
-    global credentials_path
-    with open(credentials_path.get()) as credentials_file:
-        credentials = json.load(credentials_file)
-        credentials_id = credentials["id"]
-        credentials_secret = credentials["secret"]
-        return Requestor(base_url, credentials_id, credentials_secret)
-
-
-def get_user_name(requestor):
-    _, user = requestor.get('/user')
-    return user["name"]
-
-
-def anonymize(input_folder, user_name, output_folder):
+def anonymize(input_folder, output_folder):
+    global user_name
     # r=root, d=directories, f = files
     for r, d, f in os.walk(input_folder):
         for file in f:
@@ -152,7 +163,7 @@ def get_dose_id(patient_item):
         return None
 
 
-def maybe_attach_scorecard(requestor, patient_item):
+def maybe_attach_scorecard(patient_item):
     global scorecard_template_id
     dose_id = get_dose_id(patient_item)
     if dose_id:
@@ -179,6 +190,9 @@ base_url = configuration["base_url"]
 workspace_id = configuration["workspace_id"]
 scorecard_template_id = configuration["scorecard_template_id"]
 user_configuration_path = os.path.join(str(Path.home()), ".proknow", "uploader", "user_configuration.json")
+pk = None
+requestor = None
+user_name = None
 
 root = Tk()
 root.title(f"{project_name} Uploader")
@@ -234,6 +248,7 @@ dose_required_value.grid(row=6, column=1, sticky=E)
 
 credentials_path = StringVar()
 maybe_initialize_credentials_path()
+maybe_update_credential_dependencies()
 
 credentials_path_label = Label(credentials_frame, text="Credentials: ")
 credentials_help = Label(credentials_frame, text="Help", fg="blue", cursor="hand2")
