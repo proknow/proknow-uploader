@@ -212,7 +212,7 @@ def do_conflicting_entities_exist(folder):
             for entity_type in entity_types_to_be_overwritten:
                 for entity in patient_item.find_entities(lambda e: e.data["type"] == entity_type):
                     requestor.delete(f"/workspaces/{workspace_id}/entities/{entity.id}")
-                    return False
+            return False
         else:
             return True
     else:
@@ -264,10 +264,6 @@ def maybe_attach_scorecard(patient_item):
     if dose_id:
         _, scorecard_template = requestor.get(f"/metrics/templates/{scorecard_template_id}")
         del scorecard_template["id"]
-        _, scorecards = requestor.get(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets")
-        for scorecard in scorecards:
-            if scorecard["name"] == scorecard_template["name"]:
-                requestor.delete(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets/{scorecard['id']}")
         requestor.post(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets", body=scorecard_template)
 
 
