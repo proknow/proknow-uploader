@@ -120,8 +120,8 @@ def browse_credentials():
         maybe_update_credential_dependencies()
         maybe_update_entity_statuses()
         maybe_enable_upload_button()
-        maybe_enable_view_patient()
-        maybe_enable_view_scorecard()
+        enable_disable_view_patient()
+        enable_disable_view_scorecard()
 
 
 def save_credentials_path():
@@ -142,8 +142,6 @@ def browse_directory_to_upload():
         directory_to_upload_path.set(directory)
         maybe_enable_upload_button()
         reset_upload_status()
-        disable_view_patient()
-        disable_view_scorecard()
 
 
 def maybe_enable_upload_button():
@@ -177,8 +175,8 @@ def upload():
             patient_id = patients[0].id
             maybe_update_entity_statuses()
             maybe_attach_scorecard(patients[0])
-            maybe_enable_view_patient()
-            maybe_enable_view_scorecard()
+            enable_disable_view_patient()
+            enable_disable_view_scorecard()
         upload_status.set("completed")
     else:
         shutil.rmtree(tempfolder)
@@ -193,24 +191,35 @@ def anonymize(input_folder, output_folder):
         for file in f:
             input_file_path = os.path.normpath(os.path.join(r, file))
             try:
-                dataset = pydicom.dcmread(input_file_path)
-                dataset.InstitutionName = None
-                dataset.InstitutionAddress = None
-                dataset.ReferringPhysicianName = None
-                dataset.PhysiciansOfRecord = None
-                dataset.PatientName = user_name
-                dataset.PatientID = user_name
-                if "PatientBirthDate" not in dataset or len(dataset.PatientBirthDate) != 8:
-                    dataset.PatientBirthDate = None
-                else:
-                    dataset.PatientBirthDate = f"{dataset.PatientBirthDate[:4]}0101"
-                dataset.EthnicGroup = None
-                dataset.StudyID = None
-                output_filename = f"{dataset.Modality}.{dataset.SOPInstanceUID}.dcm"
-                output_file_path = os.path.normpath(os.path.join(output_folder, output_filename))
-                dataset.save_as(output_file_path, False)
-            except InvalidDicomError:
-                pass  # ignore non-DICOM files
+                dataset = pydicom.dcmread(input_file_path, force=True)
+                if "Modality" in dataset:  # is valid DICOM
+                    modality = dataset.Modality
+                    if modality in modality_entity_type_map:  # is supported modality
+                        dataset.InstitutionName = None
+                        dataset.InstitutionAddress = None
+                        dataset.ReferringPhysicianName = None
+                        dataset.PhysiciansOfRecord = None
+                        dataset.PatientName = user_name
+                        dataset.PatientID = user_name
+                        if "PatientBirthDate" not in dataset or len(dataset.PatientBirthDate) != 8:
+                            dataset.PatientBirthDate = None
+                        else:
+                            dataset.PatientBirthDate = f"{dataset.PatientBirthDate[:4]}0101"
+                        dataset.EthnicGroup = None
+                        dataset.StudyID = None
+                        output_filename = f"{dataset.Modality}.{dataset.SOPInstanceUID}.dcm"
+                        output_file_path = os.path.normpath(os.path.join(output_folder, output_filename))
+                        dataset.save_as(output_file_path, False)
+            except:
+                err = sys.exc_info()[0]
+                print(f"Error reading {input_file_path}: {err} (skipping file)")
+                pass  # skip invalid DICOM files
+
+
+def is_dicom(file_path):
+    with open(file_path, "rb") as file:
+        s = file.read(132)
+        return s.endswith(str.encode("DICM"))
 
 
 def do_conflicting_entities_exist(folder):
@@ -254,21 +263,19 @@ def get_entity_types_to_be_overwritten(folder):
 def get_file_entity_types(folder):
     # r=root, d=directories, f = files
     entity_types = []
-    modality_entity_type_map = {
-        "CT": "image_set",
-        "MR": "image_set",
-        "RTSTRUCT": "structure_set",
-        "RTPLAN": "plan",
-        "RTDOSE": "dose"
-    }
     for r, d, f in os.walk(folder):
         for file in f:
             file_path = os.path.normpath(os.path.join(r, file))
-            dataset = pydicom.dcmread(file_path, specific_tags=["Modality"])
-            modality = dataset.Modality
-            entity_type = modality_entity_type_map[modality]
-            if entity_type not in entity_types:
-                entity_types.append(entity_type)
+            try:
+                dataset = pydicom.dcmread(file_path, force=True, specific_tags=["Modality"])
+                if "Modality" in dataset:  # is valid DICOM
+                    modality = dataset.Modality
+                    if modality in modality_entity_type_map:  # is supported modality
+                        entity_type = modality_entity_type_map[modality]
+                        if entity_type not in entity_types:
+                            entity_types.append(entity_type)
+            except:
+                pass  # skip invalid DICOM files
     return entity_types
 
 
@@ -287,21 +294,19 @@ def get_dose_id(patient_item):
         return None
 
 
-def maybe_enable_view_patient():
+def enable_disable_view_patient():
+    view_patient['state'] = DISABLED
     if patient_id is not None:
         patient_url.set(f"{base_url}/{workspace.slug}/patients/{patient_id}/browse")
         view_patient['state'] = 'normal'
-
-
-def disable_view_patient():
-    view_patient['state'] = DISABLED
 
 
 def show_patient(*_):
     webbrowser.open_new_tab(patient_url.get())
 
 
-def maybe_enable_view_scorecard():
+def enable_disable_view_scorecard():
+    view_scorecard['state'] = DISABLED
     if pk is not None and user_name is not None:
         patient = pk.patients.find(workspace_id, name=user_name)
         if patient is not None:
@@ -313,10 +318,6 @@ def maybe_enable_view_scorecard():
                     if scorecard.name == scorecard_template["name"]:
                         scorecard_url.set(f"{base_url}/{workspace.slug}/patients/{patient_item.id}/scorecards/computed?scorecard={scorecard.id}")
                         view_scorecard['state'] = 'normal'
-
-
-def disable_view_scorecard():
-    view_scorecard['state'] = DISABLED
 
 
 def show_scorecard(*_):
@@ -342,6 +343,14 @@ user_name = None
 workspace = None
 scorecard_template = None
 patient_id = None
+
+modality_entity_type_map = {
+    "CT": "image_set",
+    "MR": "image_set",
+    "RTSTRUCT": "structure_set",
+    "RTPLAN": "plan",
+    "RTDOSE": "dose"
+}
 
 root = Tk()
 root.title(f"{project_name} Uploader")
@@ -480,7 +489,7 @@ upload_button.grid(row=0, column=0, sticky=W)
 upload_status_value.grid(row=0, column=1, sticky=W)
 view_patient.grid(row=0, column=2, sticky=E)
 view_scorecard.grid(row=0, column=3, sticky=E)
-maybe_enable_view_patient()
-maybe_enable_view_scorecard()
+enable_disable_view_patient()
+enable_disable_view_scorecard()
 
 root.mainloop()
