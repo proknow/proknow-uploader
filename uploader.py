@@ -39,6 +39,7 @@ def maybe_update_credential_dependencies():
     global user_name
     global workspace
     global scorecard_template
+    global patient_id
     if credentials_path.get():
         pk = ProKnow(base_url, credentials_file=credentials_path.get())
         requestor = get_requestor()
@@ -46,6 +47,9 @@ def maybe_update_credential_dependencies():
         workspace = pk.workspaces.resolve_by_id(workspace_id)
         _, scorecard_template = requestor.get(f"/metrics/templates/{scorecard_template_id}")
         del scorecard_template["id"]
+        patient = pk.patients.find(workspace_id, name=user_name)
+        if patient is not None:
+            patient_id = patient.id
 
 
 def get_requestor():
@@ -116,6 +120,8 @@ def browse_credentials():
         maybe_update_credential_dependencies()
         maybe_update_entity_statuses()
         maybe_enable_upload_button()
+        maybe_enable_view_patient()
+        maybe_enable_view_scorecard()
 
 
 def save_credentials_path():
@@ -156,6 +162,7 @@ def upload():
     global workspace_id
     global directory_to_upload_path
     global pk
+    global patient_id
     global upload_status
     global patient_url
     upload_status.set("in progress...")
@@ -167,10 +174,11 @@ def upload():
         shutil.rmtree(tempfolder)
         patients = [patient.get() for patient in batch.patients]
         if len(patients) > 0:
+            patient_id = patients[0].id
             maybe_update_entity_statuses()
             maybe_attach_scorecard(patients[0])
-            enable_view_patient(patients[0].id)
-            enable_view_scorecard(patients[0])
+            maybe_enable_view_patient()
+            maybe_enable_view_scorecard()
         upload_status.set("completed")
     else:
         shutil.rmtree(tempfolder)
@@ -279,9 +287,10 @@ def get_dose_id(patient_item):
         return None
 
 
-def enable_view_patient(patient_id):
-    patient_url.set(f"{base_url}/{workspace.slug}/patients/{patient_id}/browse")
-    view_patient['state'] = 'normal'
+def maybe_enable_view_patient():
+    if patient_id is not None:
+        patient_url.set(f"{base_url}/{workspace.slug}/patients/{patient_id}/browse")
+        view_patient['state'] = 'normal'
 
 
 def disable_view_patient():
@@ -292,13 +301,18 @@ def show_patient(*_):
     webbrowser.open_new_tab(patient_url.get())
 
 
-def enable_view_scorecard(patient_item):
-    entities = patient_item.find_entities(type="dose")
-    entity = entities[0].get()
-    for scorecard in entity.scorecards.query():
-        if scorecard.name == scorecard_template["name"]:
-            scorecard_url.set(f"{base_url}/{workspace.slug}/patients/{patient_item.id}/scorecards/computed?scorecard={scorecard.id}")
-            view_scorecard['state'] = 'normal'
+def maybe_enable_view_scorecard():
+    if pk is not None and user_name is not None:
+        patient = pk.patients.find(workspace_id, name=user_name)
+        if patient is not None:
+            patient_item = patient.get()
+            dose_entities = patient_item.find_entities(type="dose")
+            if len(dose_entities) > 0:
+                dose_item = dose_entities[0].get()
+                for scorecard in dose_item.scorecards.query():
+                    if scorecard.name == scorecard_template["name"]:
+                        scorecard_url.set(f"{base_url}/{workspace.slug}/patients/{patient_item.id}/scorecards/computed?scorecard={scorecard.id}")
+                        view_scorecard['state'] = 'normal'
 
 
 def disable_view_scorecard():
@@ -327,6 +341,7 @@ requestor = None
 user_name = None
 workspace = None
 scorecard_template = None
+patient_id = None
 
 root = Tk()
 root.title(f"{project_name} Uploader")
@@ -465,5 +480,7 @@ upload_button.grid(row=0, column=0, sticky=W)
 upload_status_value.grid(row=0, column=1, sticky=W)
 view_patient.grid(row=0, column=2, sticky=E)
 view_scorecard.grid(row=0, column=3, sticky=E)
+maybe_enable_view_patient()
+maybe_enable_view_scorecard()
 
 root.mainloop()
