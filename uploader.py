@@ -22,7 +22,6 @@ def read_app_configuration(configuration_path):
 
 
 def maybe_initialize_credentials_path():
-    global user_configuration_path
     if os.path.exists(user_configuration_path):
         with open(user_configuration_path) as user_configuration_file:
             user_configuration = json.load(user_configuration_file)
@@ -135,6 +134,7 @@ def upload():
     upload_status.set("in progress...")
     upload_status_value.update_idletasks()
     tempfolder = tempfile.mkdtemp(prefix="proknow-uploader")
+    #TODO--DON'T ALLOW USER TO PROCEED IF FOLDER HAS MULTIPLE PATIENTS OR EVEN MULTIPLE ENTITIES?
     anonymize(directory_to_upload_path.get(), tempfolder)
     if not do_conflicting_entities_exist(tempfolder):
         batch = pk.uploads.upload(workspace_id, tempfolder)
@@ -163,6 +163,7 @@ def anonymize(input_folder, output_folder):
                 if "Modality" in dataset:  # is valid DICOM
                     modality = dataset.Modality
                     if modality in modality_entity_type_map:  # is supported modality
+                        #TODO--USE SAL'S ANONYMIZATION CODE
                         dataset.InstitutionName = None
                         dataset.InstitutionAddress = None
                         dataset.ReferringPhysicianName = None
