@@ -32,14 +32,20 @@ def maybe_initialize_credentials_path():
 
 
 def maybe_update_credential_dependencies():
+    global workspace_id
     global credentials_path
     global pk
     global requestor
     global user_name
+    global workspace
+    global scorecard_template
     if credentials_path.get():
         pk = ProKnow(base_url, credentials_file=credentials_path.get())
         requestor = get_requestor()
         user_name = get_user_name()
+        workspace = pk.workspaces.resolve_by_id(workspace_id)
+        _, scorecard_template = requestor.get(f"/metrics/templates/{scorecard_template_id}")
+        del scorecard_template["id"]
 
 
 def get_requestor():
@@ -131,6 +137,7 @@ def browse_directory_to_upload():
         maybe_enable_upload_button()
         reset_upload_status()
         disable_view_patient()
+        disable_view_scorecard()
 
 
 def maybe_enable_upload_button():
@@ -162,9 +169,8 @@ def upload():
         if len(patients) > 0:
             maybe_update_entity_statuses()
             maybe_attach_scorecard(patients[0])
-            workspace = pk.workspaces.resolve_by_id(workspace_id)
-            patient_url.set(f"{base_url}/{workspace.slug}/patients/{patients[0].id}/browse")
-            enable_view_patient()
+            enable_view_patient(patients[0].id)
+            enable_view_scorecard(patients[0])
         upload_status.set("completed")
     else:
         shutil.rmtree(tempfolder)
@@ -262,8 +268,6 @@ def maybe_attach_scorecard(patient_item):
     global scorecard_template_id
     dose_id = get_dose_id(patient_item)
     if dose_id:
-        _, scorecard_template = requestor.get(f"/metrics/templates/{scorecard_template_id}")
-        del scorecard_template["id"]
         requestor.post(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets", body=scorecard_template)
 
 
@@ -275,7 +279,8 @@ def get_dose_id(patient_item):
         return None
 
 
-def enable_view_patient():
+def enable_view_patient(patient_id):
+    patient_url.set(f"{base_url}/{workspace.slug}/patients/{patient_id}/browse")
     view_patient['state'] = 'normal'
 
 
@@ -283,11 +288,29 @@ def disable_view_patient():
     view_patient['state'] = DISABLED
 
 
-def show_uploaded_patient(*_):
+def show_patient(*_):
     webbrowser.open_new_tab(patient_url.get())
 
 
+def enable_view_scorecard(patient_item):
+    entities = patient_item.find_entities(type="dose")
+    entity = entities[0].get()
+    for scorecard in entity.scorecards.query():
+        if scorecard.name == scorecard_template["name"]:
+            scorecard_url.set(f"{base_url}/{workspace.slug}/patients/{patient_item.id}/scorecards/computed?scorecard={scorecard.id}")
+            view_scorecard['state'] = 'normal'
+
+
+def disable_view_scorecard():
+    view_scorecard['state'] = DISABLED
+
+
+def show_scorecard(*_):
+    webbrowser.open_new_tab(scorecard_url.get())
+
+
 root_path = os.path.abspath(os.sep)
+
 configuration = read_app_configuration("./config/config.json")
 project_name = configuration["project_name"]
 base_url = configuration["base_url"]
@@ -297,10 +320,13 @@ is_imageset_required = configuration["is_imageset_required"]
 is_structure_set_required = configuration["is_structure_set_required"]
 is_plan_required = configuration["is_plan_required"]
 is_dose_required = configuration["is_dose_required"]
+
 user_configuration_path = os.path.join(str(Path.home()), ".proknow", "uploader", "user_configuration.json")  #TODO--INCLUDE UPLOADER NAME IN PATH
 pk = None
 requestor = None
 user_name = None
+workspace = None
+scorecard_template = None
 
 root = Tk()
 root.title(f"{project_name} Uploader")
@@ -427,15 +453,17 @@ directory_to_upload_path_browse_button.grid(row=0, column=2, sticky=E)
 
 upload_status = StringVar()
 patient_url = StringVar()
+scorecard_url = StringVar()
 
 upload_button = Button(upload_frame, text="Upload", command=upload, state=DISABLED)
 upload_status_value = Label(upload_frame, textvariable=upload_status)
-view_patient = Label(upload_frame, text="View Patient", fg="blue", cursor="hand2", state=DISABLED)
-view_patient.bind("<Button-1>", show_uploaded_patient)
+view_patient = Button(upload_frame, text="View Patient", command=show_patient, state=DISABLED)
+view_scorecard = Button(upload_frame, text="View Scorecard", command=show_scorecard, state=DISABLED)
 
 upload_frame.grid_columnconfigure(2, weight=1)
 upload_button.grid(row=0, column=0, sticky=W)
 upload_status_value.grid(row=0, column=1, sticky=W)
 view_patient.grid(row=0, column=2, sticky=E)
+view_scorecard.grid(row=0, column=3, sticky=E)
 
 root.mainloop()
