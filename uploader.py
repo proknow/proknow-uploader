@@ -10,7 +10,6 @@ from tkinter import messagebox
 
 import pydicom
 from proknow import ProKnow
-from pydicom.errors import *
 
 from Requestor import Requestor
 
@@ -24,7 +23,6 @@ def read_app_configuration(configuration_path):
 
 def maybe_initialize_credentials_path():
     global user_configuration_path
-    global credentials_path
     if os.path.exists(user_configuration_path):
         with open(user_configuration_path) as user_configuration_file:
             user_configuration = json.load(user_configuration_file)
@@ -32,8 +30,6 @@ def maybe_initialize_credentials_path():
 
 
 def maybe_update_credential_dependencies():
-    global workspace_id
-    global credentials_path
     global pk
     global requestor
     global user_name
@@ -53,7 +49,6 @@ def maybe_update_credential_dependencies():
 
 
 def get_requestor():
-    global credentials_path
     with open(credentials_path.get()) as credentials_file:
         credentials = json.load(credentials_file)
         credentials_id = credentials["id"]
@@ -68,19 +63,6 @@ def get_user_name():
 
 
 def maybe_update_entity_statuses():
-    global pk
-    global workspace_id
-    global user_name
-    global does_patient_exist
-    global was_imageset_submitted
-    global was_structure_set_submitted
-    global was_plan_submitted
-    global was_dose_submitted
-    global does_patient_exist_value
-    global was_imageset_submitted_value
-    global was_structure_set_submitted_value
-    global was_plan_submitted_value
-    global was_dose_submitted_value
     does_patient_exist.set("")
     was_imageset_submitted.set("")
     was_structure_set_submitted.set("")
@@ -111,8 +93,6 @@ def show_credentials_help(*_):
 
 
 def browse_credentials():
-    global root_path
-    global credentials_path
     filename = filedialog.askopenfilename(initialdir=root_path, title="Select credentials file", filetypes=(("json files", "*.json"), ("all files", "*.*")))
     if filename:
         credentials_path.set(filename)
@@ -125,8 +105,6 @@ def browse_credentials():
 
 
 def save_credentials_path():
-    global user_configuration_path
-    global credentials_path
     os.makedirs(os.path.dirname(user_configuration_path), exist_ok=True)
     with open(user_configuration_path, mode="w+") as user_configuration_file:
         user_configuration = dict()
@@ -135,8 +113,6 @@ def save_credentials_path():
 
 
 def browse_directory_to_upload():
-    global root_path
-    global directory_to_upload_path
     directory = filedialog.askdirectory(initialdir=root_path, title="Select directory to upload")
     if directory:
         directory_to_upload_path.set(directory)
@@ -145,8 +121,6 @@ def browse_directory_to_upload():
 
 
 def maybe_enable_upload_button():
-    global credentials_path
-    global directory_to_upload_path
     if credentials_path.get() and directory_to_upload_path.get():
         upload_button['state'] = 'normal'
 
@@ -157,12 +131,7 @@ def reset_upload_status():
 
 
 def upload():
-    global workspace_id
-    global directory_to_upload_path
-    global pk
     global patient_id
-    global upload_status
-    global patient_url
     upload_status.set("in progress...")
     upload_status_value.update_idletasks()
     tempfolder = tempfile.mkdtemp(prefix="proknow-uploader")
@@ -185,7 +154,6 @@ def upload():
 
 
 def anonymize(input_folder, output_folder):
-    global user_name
     # r=root, d=directories, f = files
     for r, d, f in os.walk(input_folder):
         for file in f:
@@ -216,15 +184,7 @@ def anonymize(input_folder, output_folder):
                 pass  # skip invalid DICOM files
 
 
-def is_dicom(file_path):
-    with open(file_path, "rb") as file:
-        s = file.read(132)
-        return s.endswith(str.encode("DICM"))
-
-
 def do_conflicting_entities_exist(folder):
-    global workspace_id
-    global user_name
     entity_types_to_be_overwritten = get_entity_types_to_be_overwritten(folder)
     if len(entity_types_to_be_overwritten) > 0:
         pretty_entity_types_to_be_overwritten = [x.replace("_", " ") for x in entity_types_to_be_overwritten]
@@ -243,10 +203,6 @@ def do_conflicting_entities_exist(folder):
 
 
 def get_entity_types_to_be_overwritten(folder):
-    global was_imageset_submitted
-    global was_structure_set_submitted
-    global was_plan_submitted
-    global was_dose_submitted
     file_entity_types = get_file_entity_types(folder)
     entity_types_to_be_overwritten = []
     if was_imageset_submitted.get() == "Yes" and "image_set" in file_entity_types:
@@ -280,7 +236,6 @@ def get_file_entity_types(folder):
 
 
 def maybe_attach_scorecard(patient_item):
-    global scorecard_template_id
     dose_id = get_dose_id(patient_item)
     if dose_id:
         requestor.post(f"/workspaces/{workspace_id}/entities/{dose_id}/metrics/sets", body=scorecard_template)
