@@ -335,7 +335,7 @@ is_structure_set_required = configuration["is_structure_set_required"]
 is_plan_required = configuration["is_plan_required"]
 is_dose_required = configuration["is_dose_required"]
 
-user_configuration_path = os.path.join(str(Path.home()), ".proknow", "uploader", "user_configuration.json")  #TODO--INCLUDE UPLOADER NAME IN PATH
+user_configuration_path = os.path.join(str(Path.home()), ".proknow", "uploader", project_name, "user_configuration.json")
 pk = None
 requestor = None
 user_name = None
