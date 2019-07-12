@@ -39,10 +39,10 @@ Support for building uploaders is only
 
 ### Windows
 
-Here is the command to build the uploader. Please be sure to replace C:\path\to\config.json with the file you created with the parameters listed above.
+Here is the command to build the uploader. Please be sure to replace "Project Name" with the name of the uploader and `config.json` with the path to your config file.
 
 ```
-pyinstaller --onefile --windowed --icon "icon.ico" --add-data "C:\path\to\config.json;.\" --name "Project Name" uploader.py Application.py Steps.py
+pyinstaller --onefile --windowed --add-data "config.json;./" --icon="icon.ico" --name="Project Name" uploader.py Application.py Steps.py
 ```
 
 ### Mac OS
@@ -53,6 +53,12 @@ In addition, the second workaround listed in [this comment](https://github.com/p
 
 ```
 #### ERROR: Tcl/Tk improperly installed on this system.
+```
+
+In any case, here is a command to build a console-based uploader application. Please be sure to replace "Project Name" with the name of the uploader and `config.json` with the path to your config file.
+
+```
+pyinstaller --onefile --add-data "config.json:./" --icon="icon.ico" --name="Project Name" uploader.py Application.py Steps.py
 ```
 
 ## Development

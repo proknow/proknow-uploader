@@ -43,7 +43,6 @@ class Application(object):
         # Load app configurations
         directory = os.path.dirname(os.path.abspath(__file__))
         self.app_configuration_path = os.path.join(directory, 'config.json')
-        print('app_configuration_path', self.app_configuration_path)
         if os.path.exists(self.app_configuration_path):
             with open(self.app_configuration_path, 'r') as file:
                 self.app_configuration = json.load(file)
@@ -54,7 +53,6 @@ class Application(object):
 
         # Load user configuration
         self.user_configuration_path = os.path.join(self.home_path, ".proknow", "uploader", self.project_name, "user_configuration.json")
-        print('user_configuration_path', self.user_configuration_path)
         if os.path.exists(self.user_configuration_path):
             with open(self.user_configuration_path, 'r') as file:
                 self.user_configuration = json.load(file)
