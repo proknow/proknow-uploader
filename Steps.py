@@ -40,7 +40,14 @@ class CredentialsPage(object):
         data = self.app.credentials_page_data
 
         # Configure session
-        if data["session"] is None:
+        if "session" not in data:
+            self.session_label_variable.set("Please select a credentials file.")
+            self.session_label.configure(foreground="black")
+            self.session_label.grid(column=0, row=2, columnspan=2, sticky=(W,))
+            self.workspace_label.grid_remove()
+            self.scorecard_label.grid_remove()
+            return
+        elif data["session"] is None:
             self.session_label_variable.set("\u2717 Credentials error: " + data["session_error"])
             self.session_label.configure(foreground="red")
             self.session_label.grid(column=0, row=2, columnspan=2, sticky=(W,))
