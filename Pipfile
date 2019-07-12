@@ -9,7 +9,6 @@ pyinstaller = "*"
 [packages]
 proknow = "*"
 pydicom = "*"
-six = "*"
 
 [requires]
 python_version = "3.7"

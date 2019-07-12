@@ -35,23 +35,75 @@ To build the uploader you will need a configuration file. It's a good idea to na
 - `is_plan_required` (required): Indicates whether a plan is required as part of the user's submission.
 - `is_dose_required` (required): Indicates whether a dose is required as part of the user's submission.
 
+Support for building uploaders is only 
+
+### Windows
+
+Here is the command to build the uploader. Please be sure to replace C:\path\to\config.json with the file you created with the parameters listed above.
+
+```
+pyinstaller --onefile --windowed --icon "icon.ico" --add-data "C:\path\to\config.json;.\" --name "Project Name" uploader.py Application.py Steps.py
+```
+
+### Mac OS
+
+Unfortunately, the uploader cannot be built as a console-less application for Mac OS right now.
+
+In addition, the second workaround listed in [this comment](https://github.com/pyinstaller/pyinstaller/issues/3753#issuecomment-432464838) must be used to get around this error:
+
+```
+#### ERROR: Tcl/Tk improperly installed on this system.
+```
+
 ## Development
 
-### Requirements
+### Mac
+
+#### Requirements
 
 - Python 3.7 (Python 2.7 may work, but no guarantees) with `pip`
 - [Pipenv](https://pipenv.readthedocs.io/en/latest/)
 
-### Setup
+#### Setup
 
-One you have Python installed and Pipenv added as package with `pip`, use `pipenv` to install your development environment.
+One you have Python installed, install `pipenv`, install the pipenv virtual environment environment, and start the shell.
+
+```
+pip install pipenv
+```
 
 ```
 pipenv install --dev
 ```
 
-Then start the shell in the virtual environment.
-
 ```
 pipenv shell
 ```
+
+Run the uploader in the shell.
+
+```
+python uploader.py
+```
+
+Note that you'll need a valid `config.json` located in the root of this repository for testing.
+
+### Windows
+
+#### Requirements
+
+- Python 3.7 (Python 2.7 may work, but no guarantees) with `pip`
+
+#### Setup
+
+Once you have Python installed, install the following modules.
+
+```
+pip install pyinstaller proknow pydicom
+```
+
+```
+python uploader.py
+```
+
+Note that you'll need a valid `config.json` located in the root of this repository for testing.

@@ -314,7 +314,7 @@ class ResultsPage(object):
         self.step3_label_frame.columnconfigure(0, weight=1)
         self.step3_label_frame.columnconfigure(1, weight=1)
         self.results_instructions = ttk.Label(self.step3_label_frame, textvariable=self.results_instructions_variable, wraplength=600)
-        self.view_patient_button = ttk.Button(self.step3_label_frame, text='View Patient Scorecard in ProKnow DS', command=self._open_patient)
+        self.view_patient_button = ttk.Button(self.step3_label_frame, text='View Patient in ProKnow DS', command=self._open_patient)
 
     def render(self):
         data = self.app.results_page_data
