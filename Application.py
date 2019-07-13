@@ -169,16 +169,20 @@ class Application(object):
         for path in paths:
             if path not in data["uploads"]["inpaths"]:
                 data["uploads"]["inpaths"].add(path)
-                dataset = pydicom.dcmread(path, force=True)
-                if "Modality" in dataset:
-                    modality = dataset.Modality
-                    if modality in self.MODALITY_ENTITY_TYPE_MAP:
-                        entity_type = self.MODALITY_ENTITY_TYPE_MAP[modality]
-                        self.anonymize(dataset, data["identifier"])
-                        _, outpath = tempfile.mkstemp(dir=data["uploads"]["tempdir"],suffix=".dcm")
-                        dataset.save_as(outpath, False)
-                        data["uploads"]["series_info"][entity_type].add(dataset.SeriesInstanceUID)
-                        data["uploads"]["outpaths"][entity_type].append(outpath)
+                try:
+                    dataset = pydicom.dcmread(path)
+                    if "Modality" in dataset:
+                        modality = dataset.Modality
+                        if modality in self.MODALITY_ENTITY_TYPE_MAP:
+                            entity_type = self.MODALITY_ENTITY_TYPE_MAP[modality]
+                            self.anonymize(dataset, data["identifier"])
+                            with tempfile.NamedTemporaryFile(dir=data["uploads"]["tempdir"], suffix=".dcm", delete=False) as file:
+                                dataset.save_as(file, False)
+                                data["uploads"]["series_info"][entity_type].add(dataset.SeriesInstanceUID)
+                                data["uploads"]["outpaths"][entity_type].append(file.name)
+                except Exception as ex:
+                    print(ex)
+                    pass
 
         self.render()
 
