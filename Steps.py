@@ -132,6 +132,11 @@ class UploadsPage(object):
         self.upload_buttons_frame = ttk.Frame(self.step2_label_frame, padding="0 5")
         self.upload_button = ttk.Button(self.upload_buttons_frame, text='Upload', command=self._upload_files)
         self.clear_button = ttk.Button(self.upload_buttons_frame, text='Clear', command=self._clear_files)
+        self.temp_progress_frame = ttk.Frame(self.step2_label_frame, padding="0 5")
+        self.temp_progress_label = ttk.Label(self.temp_progress_frame, text='Your uploads are in ' +
+            'progress. This may take several minutes depending on the number of files and your ' +
+            'upload speed. Please note that the app may be unresponsive while uploads are in ' +
+            'progress.', foreground="purple", wraplength=600)
         self.progress_frame = ttk.Frame(self.step2_label_frame, padding="0 5")
         self.upload_progress_label = ttk.Label(self.progress_frame, text="Upload Progress")
         self.upload_progress = ttk.Progressbar(self.progress_frame, orient="horizontal", length=200, mode='determinate')
@@ -184,6 +189,8 @@ class UploadsPage(object):
             self.upload_progress.grid_remove()
             self.process_progress_label.grid_remove()
             self.process_progress_label.grid_remove()
+            self.temp_progress_frame.grid_remove()
+            self.temp_progress_label.grid_remove()
 
             self.choose_buttons_frame.grid(column=0, row=3, sticky=(W, E))
             self.choose_directory_button.grid(column=0, row=0)
@@ -241,19 +248,20 @@ class UploadsPage(object):
                 invalid = 0
                 for key in self.app.ENTITY_TYPES:
                     item = self.upload_labels[key]
-                    info = data["uploads"]["series_info"][key]
-                    length = len(info)
+                    file_count = len(data["uploads"]["outpaths"][key])
+                    length = len(data["uploads"]["series_info"][key])
                     if length == 0:
                         item["label"].grid_remove()
                     elif length == 1:
-                        item["variable"].set('\u2713 ' + self.app.ENTITY_TYPE_NAME_MAP[key] + "(1)")
+                        info = str(file_count) + " file" if file_count == 1 else str(file_count) + " files"
+                        item["variable"].set('\u2713 ' + self.app.ENTITY_TYPE_NAME_MAP[key] + " (" + info + ")")
                         item["label"].configure(foreground="green")
                         item["label"].grid(column=0, row=row, sticky=(W,))
                         valid += 1
                         row += 1
                     else:
-                        item.variable.set('\u2717 ' + self.app.ENTITY_TYPE_NAME_MAP[key] + "(" + length + ")")
-                        item["label"].configure(foreground="green")
+                        item["variable"].set('\u2717 ' + self.app.ENTITY_TYPE_NAME_MAP[key] + " (expected 1 entity; " + str(length) + " entities encountered)")
+                        item["label"].configure(foreground="red")
                         item["label"].grid(column=0, row=row, sticky=(W,))
                         invalid += 1
                         row += 1
@@ -263,6 +271,7 @@ class UploadsPage(object):
                     self.upload_files_message_variable.set('More than one entity was selected ' +
                         'for ' + count + ' below. Please clear the uploads and try again with a ' +
                         'single entity per entity type.')
+                    self.upload_button.configure(state=['disabled'])
                 elif valid > 0:
                     count = (str(valid) + ' entities') if valid > 1 else ('1 entity')
                     self.upload_files_message_variable.set("You are ready to upload " + count +
@@ -272,7 +281,9 @@ class UploadsPage(object):
                         "the selected patient. Press the Upload button below when you are " +
                         "ready to initiate the upload or use the button above to add additional " +
                         "DICOM files to the upload batch.")
+                    self.upload_button.configure(state=[])
                 else:
+                    self.upload_button.configure(state=['disabled'])
                     self.upload_files_message_variable.set("No valid DICOM files were found in " +
                         "the selected directory or in the set of selected files. Use the button " +
                         "above to add additional DICOM files to the upload batch.")
@@ -300,7 +311,9 @@ class UploadsPage(object):
         self.app.render()
 
     def _upload_files(self):
-        self.app.upload_files()
+        self.temp_progress_frame.grid(column=0, row=7, sticky=(W,E))
+        self.temp_progress_label.grid(column=0, row=0)
+        self.app.root.after(500, self.app.upload_files)
 
 class ResultsPage(object):
     def __init__(self, app):

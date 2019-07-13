@@ -61,7 +61,7 @@ class Application(object):
 
         # Initialize the application
         self.root = Tk()
-        self.root.title(f"{self.project_name} Uploader")
+        self.root.title(self.project_name)
         self.root.protocol("WM_DELETE_WINDOW", self._destroy)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
@@ -141,10 +141,13 @@ class Application(object):
             "PerformingPhysicianIdentificationSequence",
             "OperatorsName",
             "OperatorIdentificationSequence",
+            "SeriesDescription",
         ]
         for tag in tags:
             if tag in dataset:
                 delattr(dataset, tag)
+
+        dataset.remove_private_tags()
 
     def add_files(self, paths):
         data = self.uploads_page_data
