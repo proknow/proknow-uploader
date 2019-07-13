@@ -117,8 +117,15 @@ class UploadsPage(object):
                 }
         self.required_uploaded_separator = ttk.Separator(self.step2_label_frame, orient=HORIZONTAL)
         self.choose_buttons_frame = ttk.Frame(self.step2_label_frame, padding="0 5")
+        self.choose_buttons_frame.columnconfigure(0, weight=0)
+        self.choose_buttons_frame.columnconfigure(1, weight=1)
         self.choose_directory_button = ttk.Button(self.choose_buttons_frame, text='Choose Directory...', command=self._choose_directory)
         self.choose_files_button = ttk.Button(self.choose_buttons_frame, text='Choose Files...', command=self._choose_files)
+        self.temp_add_files_frame = ttk.Frame(self.choose_buttons_frame, padding="0 5")
+        self.temp_add_files_label = ttk.Label(self.temp_add_files_frame, text='Your files are ' +
+            'being scanned and anonymized. This may take a few seconds depending on the number ' +
+            'of files selected. Please note that the app may be unresponsive while files are ' +
+            'being processed.', foreground="purple", wraplength=600)
         self.upload_files_message = ttk.Label(self.step2_label_frame, textvariable=self.upload_files_message_variable, wraplength=600)
         self.upload_summary_frame = ttk.Frame(self.step2_label_frame, padding="0 5")
         self.upload_labels = {}
@@ -189,12 +196,14 @@ class UploadsPage(object):
             self.upload_progress.grid_remove()
             self.process_progress_label.grid_remove()
             self.process_progress_label.grid_remove()
+            self.temp_add_files_frame.grid_remove()
+            self.temp_add_files_label.grid_remove()
             self.temp_progress_frame.grid_remove()
             self.temp_progress_label.grid_remove()
 
             self.choose_buttons_frame.grid(column=0, row=3, sticky=(W, E))
             self.choose_directory_button.grid(column=0, row=0)
-            self.choose_files_button.grid(column=1, row=0)
+            self.choose_files_button.grid(column=1, row=0, sticky=(W,))
 
             if "uploads" in data:
                 self.upload_files_message.grid(column=0, row=4, sticky=(W,))
@@ -293,18 +302,22 @@ class UploadsPage(object):
         upload_directory = filedialog.askdirectory(initialdir=self.app.root_path, title="Choose directory to upload")
         self.app.root.update()
         if upload_directory:
+            self.temp_add_files_frame.grid(column=0, row=1, columnspan=2, sticky=(W,E))
+            self.temp_add_files_label.grid(column=0, row=0)
             upload_file_paths = []
             for root, dirs, files in os.walk(upload_directory):
                 for name in files:
                     upload_file_paths.append(os.path.join(root, name))
-            self.app.add_files(upload_file_paths)
+            self.app.root.after(500, self.app.add_files, upload_file_paths)
 
     def _choose_files(self):
         self.app.root.update()
         upload_file_paths = filedialog.askopenfilenames(initialdir=self.app.root_path, title="Choose files to upload")
         self.app.root.update()
         if upload_file_paths:
-            self.app.add_files(upload_file_paths)
+            self.temp_add_files_frame.grid(column=0, row=1, columnspan=2, sticky=(W,E))
+            self.temp_add_files_label.grid(column=0, row=0)
+            self.app.root.after(500, self.app.add_files, upload_file_paths)
 
     def _clear_files(self):
         self.app.clear_files()

@@ -62,6 +62,7 @@ class Application(object):
         # Initialize the application
         self.root = Tk()
         self.root.title(self.project_name)
+        self.root.iconbitmap(os.path.join(directory, 'icon.ico'))
         self.root.protocol("WM_DELETE_WINDOW", self._destroy)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
@@ -148,6 +149,7 @@ class Application(object):
             if tag in dataset:
                 delattr(dataset, tag)
 
+        # Remove private tags
         dataset.remove_private_tags()
 
     def add_files(self, paths):
@@ -184,8 +186,7 @@ class Application(object):
                                 dataset.save_as(file, False)
                                 data["uploads"]["series_info"][entity_type].add(dataset.SeriesInstanceUID)
                                 data["uploads"]["outpaths"][entity_type].append(file.name)
-                except Exception as ex:
-                    print(ex)
+                except:
                     pass
 
         self.render()
