@@ -102,3 +102,15 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+
+##################################################
+
+# Mac files
+.DS_Store
+
+# Application configuration used for testing
+config\.json
+config\.*\.json
+credentials\.json
+credentials\.*\.json
